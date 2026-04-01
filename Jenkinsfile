@@ -2,16 +2,22 @@ pipeline {
     agent any
 
     stages {
-        stage('Build Docker') {
+        stage('Clone Code') {
             steps {
-                sh 'docker compose down'
-                sh 'docker compose up -d --build'
+                git 'https://github.com/ShailendraExpress/School_mgmt_system_laravel.git'
             }
         }
 
-        stage('Check Running') {
+        stage('Setup ENV') {
             steps {
-                sh 'docker ps'
+                sh 'cp .env.example .env'
+            }
+        }
+
+        stage('Build Docker') {
+            steps {
+                sh 'docker-compose down'
+                sh 'docker-compose up -d --build'
             }
         }
     }
