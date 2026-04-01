@@ -1,0 +1,31 @@
+version: '3'
+
+services:
+  app:
+    build: .
+    container_name: school_app
+    volumes:
+      - .:/var/www
+    depends_on:
+      - db
+
+  nginx:
+    image: nginx:alpine
+    container_name: school_nginx
+    ports:
+      - "8083:80"
+    volumes:
+      - .:/var/www
+      - ./nginx:/etc/nginx/conf.d
+    depends_on:
+      - app
+
+  db:
+    image: mysql:5.7
+    container_name: school_db
+    restart: always
+    environment:
+      MYSQL_DATABASE: school
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3307:3306"

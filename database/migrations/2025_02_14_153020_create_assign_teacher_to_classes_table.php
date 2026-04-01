@@ -13,9 +13,9 @@ return new class extends Migration
     {
         Schema::create('assign_teacher_to_classes', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('class_id')->constrained('Classes')->onDelete('cascade');
-            $table->foreignId('subject_id')->constrained('Subjects')->onDelete('cascade');
-            $table->foreignId('teacher_id')->constrained('Users')->onDelete('cascade');
+            $table->foreignId('class_id')->constrained('classes')->onDelete('cascade');
+            $table->foreignId('subject_id')->constrained('subjects')->onDelete('cascade');
+            $table->foreignId('teacher_id')->constrained('users')->onDelete('cascade');
             $table->timestamps();
         });
     }
