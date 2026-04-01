@@ -4,7 +4,7 @@ pipeline {
     stages {
         stage('Clone Code') {
             steps {
-                git 'https://github.com/ShailendraExpress/School_mgmt_system_laravel.git'
+                git branch: 'main', url: 'https://github.com/ShailendraExpress/School_mgmt_system_laravel.git'
             }
         }
 
