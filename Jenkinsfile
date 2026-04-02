@@ -3,11 +3,18 @@ pipeline {
 
     stages {
 
+        stage('Clean Workspace') {
+    steps {
+        deleteDir()
+    }
+}
+
         stage('Clone Code') {
             steps {
                 git branch: 'main', url: 'https://github.com/ShailendraExpress/School_mgmt_system_laravel.git'
             }
         }
+        
 
         stage('Setup ENV') {
             steps {
@@ -35,7 +42,7 @@ pipeline {
         }
 
        stage('Laravel Setup') {
-    steps {
+          steps {
         sh '''
         docker exec school_app bash -c "cd /var/www && php artisan key:generate"
 
@@ -47,6 +54,7 @@ pipeline {
         docker exec school_app chmod -R 777 storage bootstrap/cache
         '''
     }
+    
 }
     }
 }
