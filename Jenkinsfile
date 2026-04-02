@@ -34,16 +34,19 @@ pipeline {
             }
         }
 
-        stage('Laravel Setup') {
-            steps {
-                sh '''
-               docker exec school_app bash -c "cd /var/www && php artisan key:generate"
-                docker exec school_app php artisan config:clear
-                docker exec school_app php artisan cache:clear
-                docker exec school_app php artisan migrate --force
-                docker exec school_app chmod -R 777 storage bootstrap/cache
-                '''
-            }
-        }
+       stage('Laravel Setup') {
+    steps {
+        sh '''
+        docker exec school_app bash -c "cd /var/www && php artisan key:generate"
+
+        docker exec school_app php artisan migrate --force
+
+        docker exec school_app php artisan config:clear
+        docker exec school_app php artisan cache:clear
+
+        docker exec school_app chmod -R 777 storage bootstrap/cache
+        '''
+    }
+}
     }
 }
