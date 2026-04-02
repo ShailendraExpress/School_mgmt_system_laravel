@@ -13,6 +13,9 @@ COPY . .
 
 RUN composer install
 
+# ✅ THIS LINE FIXES YOUR ISSUE
+RUN sed -i 's|127.0.0.1:9000|9000|' /usr/local/etc/php-fpm.d/www.conf
+
 RUN chown -R www-data:www-data /var/www
 
 CMD ["php-fpm"]
