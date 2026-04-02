@@ -37,7 +37,7 @@ pipeline {
         stage('Laravel Setup') {
             steps {
                 sh '''
-                docker exec school_app php artisan key:generate
+               docker exec school_app bash -c "cd /var/www && php artisan key:generate"
                 docker exec school_app php artisan config:clear
                 docker exec school_app php artisan cache:clear
                 docker exec school_app php artisan migrate --force
