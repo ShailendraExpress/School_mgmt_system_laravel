@@ -16,10 +16,16 @@ pipeline {
 }
 
         stage('Clone Code') {
-            steps {
-                git branch: 'main', url: 'https://github.com/ShailendraExpress/School_mgmt_system_laravel.git'
-            }
-        }
+    steps {
+        sh '''
+        rm -rf .git
+        git init
+        git remote add origin https://github.com/ShailendraExpress/School_mgmt_system_laravel.git
+        git fetch --all
+        git reset --hard origin/main
+        '''
+    }
+}
         
 
         stage('Setup ENV') {
