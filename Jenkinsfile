@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    environment {
+        COMPOSE_CMD = "docker compose"
+    }
+
     stages {
 
         stage('Clone Code') {
@@ -28,8 +32,17 @@ pipeline {
         stage('Docker Deploy') {
             steps {
                 sh '''
-                docker-compose down -v || true
-                docker-compose up -d --build
+                ${COMPOSE_CMD} down -v || true
+                ${COMPOSE_CMD} up -d --build
+                '''
+            }
+        }
+
+        stage('Wait for Containers') {
+            steps {
+                sh '''
+                echo "Waiting for containers to be ready..."
+                sleep 15
                 '''
             }
         }
@@ -40,10 +53,10 @@ pipeline {
                 docker exec school_app php artisan key:generate || true
                 docker exec school_app php artisan migrate --force || true
 
-                docker exec school_app php artisan config:clear
-                docker exec school_app php artisan cache:clear
+                docker exec school_app php artisan config:clear || true
+                docker exec school_app php artisan cache:clear || true
 
-                docker exec school_app chmod -R 777 storage bootstrap/cache
+                docker exec school_app chmod -R 777 storage bootstrap/cache || true
                 '''
             }
         }
