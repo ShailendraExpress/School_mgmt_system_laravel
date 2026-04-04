@@ -2,7 +2,6 @@ pipeline {
     agent any
 
     environment {
-        COMPOSE = "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:/app -w /app docker/compose:latest"
         APP_CONTAINER = "school_app"
     }
 
@@ -24,10 +23,7 @@ pipeline {
         stage('Verify Files') {
             steps {
                 sh '''
-                echo "Current Directory:"
                 pwd
-
-                echo "Files:"
                 ls -la
                 '''
             }
@@ -47,25 +43,19 @@ pipeline {
 
                 sed -i 's/APP_ENV=.*/APP_ENV=production/' .env
                 sed -i 's/APP_DEBUG=.*/APP_DEBUG=false/' .env
-
-                echo ".env configured"
                 '''
             }
         }
 
-        stage('Docker Down (Clean Old)') {
+        stage('Docker Down') {
             steps {
-                sh '''
-                ${COMPOSE} down -v || true
-                '''
+                sh 'docker compose down -v || true'
             }
         }
 
         stage('Docker Build & Up') {
             steps {
-                sh '''
-                ${COMPOSE} up -d --build
-                '''
+                sh 'docker compose up -d --build'
             }
         }
 
@@ -84,24 +74,11 @@ pipeline {
         stage('Laravel Setup') {
             steps {
                 sh '''
-                echo "Running Laravel commands..."
-
-                docker exec ${APP_CONTAINER} php artisan key:generate || true
-                docker exec ${APP_CONTAINER} php artisan migrate --force || true
-
-                docker exec ${APP_CONTAINER} php artisan config:clear || true
-                docker exec ${APP_CONTAINER} php artisan cache:clear || true
-
-                docker exec ${APP_CONTAINER} chmod -R 777 storage bootstrap/cache || true
-                '''
-            }
-        }
-
-        stage('Final Status') {
-            steps {
-                sh '''
-                echo "Final Running Containers:"
-                docker ps
+                docker exec school_app php artisan key:generate || true
+                docker exec school_app php artisan migrate --force || true
+                docker exec school_app php artisan config:clear || true
+                docker exec school_app php artisan cache:clear || true
+                docker exec school_app chmod -R 777 storage bootstrap/cache || true
                 '''
             }
         }
@@ -112,7 +89,7 @@ pipeline {
             echo "✅ Deployment Successful!"
         }
         failure {
-            echo "❌ Deployment Failed! Check logs."
+            echo "❌ Deployment Failed!"
         }
     }
 }
