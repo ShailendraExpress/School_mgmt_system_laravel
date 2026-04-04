@@ -7,16 +7,15 @@ pipeline {
 
     stages {
 
-        stage('Clean Workspace') {
+        stage('Checkout Code') {
             steps {
-                deleteDir()
-            }
-        }
-
-        stage('Clone Code') {
-            steps {
-                git branch: 'main',
-                url: 'https://github.com/ShailendraExpress/School_mgmt_system_laravel.git'
+                // Clean + clone in one step (safer than deleteDir + git)
+                checkout scmGit(
+                    branches: [[name: '*/main']],
+                    userRemoteConfigs: [[
+                        url: 'https://github.com/ShailendraExpress/School_mgmt_system_laravel.git'
+                    ]]
+                )
             }
         }
 
@@ -28,6 +27,12 @@ pipeline {
 
                 echo "Project Files:"
                 ls -la
+
+                echo "IMPORTANT CHECK:"
+                if [ ! -f artisan ]; then
+                    echo "❌ Laravel files missing!"
+                    exit 1
+                fi
                 '''
             }
         }
@@ -37,9 +42,7 @@ pipeline {
                 sh '''
                 echo "Setting up .env..."
 
-                if [ ! -f .env ]; then
-                    cp .env.example .env
-                fi
+                cp .env.example .env || true
 
                 sed -i 's/DB_HOST=.*/DB_HOST=db/' .env
                 sed -i 's/DB_DATABASE=.*/DB_DATABASE=sms/' .env
@@ -75,8 +78,8 @@ pipeline {
         stage('Wait for Containers') {
             steps {
                 sh '''
-                echo "Waiting for containers to be ready..."
-                sleep 25
+                echo "Waiting for services..."
+                sleep 30
                 '''
             }
         }
@@ -86,6 +89,9 @@ pipeline {
                 sh '''
                 echo "Running containers:"
                 docker ps
+
+                echo "Nginx Logs:"
+                docker logs school_nginx || true
                 '''
             }
         }
