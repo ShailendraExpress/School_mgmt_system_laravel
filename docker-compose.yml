@@ -6,6 +6,8 @@ services:
     container_name: school_app
     depends_on:
       - db
+    volumes:
+      - .:/var/www  
 
   nginx:
     image: nginx:alpine
