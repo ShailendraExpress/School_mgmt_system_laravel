@@ -29,11 +29,20 @@ pipeline {
             }
         }
 
-        stage('Docker Deploy') {
+      stage('Docker Deploy') {
             steps {
                 sh '''
-                ${COMPOSE_CMD} down -v || true
-                ${COMPOSE_CMD} up -d --build
+                docker run --rm \
+                -v /var/run/docker.sock:/var/run/docker.sock \
+                -v $(pwd):/app \
+                -w /app \
+                docker/compose:latest down -v || true
+
+                docker run --rm \
+                -v /var/run/docker.sock:/var/run/docker.sock \
+                -v $(pwd):/app \
+                -w /app \
+                docker/compose:latest up -d --build
                 '''
             }
         }
