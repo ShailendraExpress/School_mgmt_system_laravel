@@ -61,7 +61,7 @@ pipeline {
 
         stage('Wait for Containers') {
             steps {
-                sh 'sleep 20'
+                sh 'sleep 25'
             }
         }
 
@@ -74,11 +74,23 @@ pipeline {
         stage('Laravel Setup') {
             steps {
                 sh '''
-                docker exec school_app php artisan key:generate || true
-                docker exec school_app php artisan migrate --force || true
-                docker exec school_app php artisan config:clear || true
-                docker exec school_app php artisan cache:clear || true
-                docker exec school_app chmod -R 777 storage bootstrap/cache || true
+                echo "Running Laravel setup..."
+
+                docker exec ${APP_CONTAINER} php artisan key:generate || true
+                docker exec ${APP_CONTAINER} php artisan migrate --force || true
+                docker exec ${APP_CONTAINER} php artisan config:clear || true
+                docker exec ${APP_CONTAINER} php artisan cache:clear || true
+
+                docker exec ${APP_CONTAINER} chmod -R 777 storage bootstrap/cache || true
+                '''
+            }
+        }
+
+        stage('Final Status') {
+            steps {
+                sh '''
+                echo "Final running containers:"
+                docker ps
                 '''
             }
         }
