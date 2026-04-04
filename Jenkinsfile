@@ -1,6 +1,11 @@
 pipeline {
     agent any
 
+    environment {
+        COMPOSE = "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:/app -w /app docker/compose:latest"
+        APP_CONTAINER = "school_app"
+    }
+
     stages {
 
         stage('Clean Workspace') {
@@ -23,7 +28,7 @@ pipeline {
                 pwd
 
                 echo "Files:"
-                ls -l
+                ls -la
                 '''
             }
         }
@@ -31,7 +36,9 @@ pipeline {
         stage('Setup ENV') {
             steps {
                 sh '''
-                cp .env.example .env || true
+                if [ ! -f .env ]; then
+                    cp .env.example .env
+                fi
 
                 sed -i 's/DB_HOST=.*/DB_HOST=db/' .env
                 sed -i 's/DB_DATABASE=.*/DB_DATABASE=school/' .env
@@ -49,11 +56,7 @@ pipeline {
         stage('Docker Down (Clean Old)') {
             steps {
                 sh '''
-                docker run --rm \
-                -v /var/run/docker.sock:/var/run/docker.sock \
-                -v $(pwd):/app \
-                -w /app \
-                docker/compose:latest down -v || true
+                ${COMPOSE} down -v || true
                 '''
             }
         }
@@ -61,42 +64,35 @@ pipeline {
         stage('Docker Build & Up') {
             steps {
                 sh '''
-                docker run --rm \
-                -v /var/run/docker.sock:/var/run/docker.sock \
-                -v $(pwd):/app \
-                -w /app \
-                docker/compose:latest up -d --build
+                ${COMPOSE} up -d --build
                 '''
             }
         }
 
         stage('Wait for Containers') {
             steps {
-                sh '''
-                echo "Waiting for containers..."
-                sleep 20
-                '''
+                sh 'sleep 20'
             }
         }
 
         stage('Check Containers') {
             steps {
-                sh '''
-                docker ps
-                '''
+                sh 'docker ps'
             }
         }
 
         stage('Laravel Setup') {
             steps {
                 sh '''
-                docker exec school_app php artisan key:generate || true
-                docker exec school_app php artisan migrate --force || true
+                echo "Running Laravel commands..."
 
-                docker exec school_app php artisan config:clear || true
-                docker exec school_app php artisan cache:clear || true
+                docker exec ${APP_CONTAINER} php artisan key:generate || true
+                docker exec ${APP_CONTAINER} php artisan migrate --force || true
 
-                docker exec school_app chmod -R 777 storage bootstrap/cache || true
+                docker exec ${APP_CONTAINER} php artisan config:clear || true
+                docker exec ${APP_CONTAINER} php artisan cache:clear || true
+
+                docker exec ${APP_CONTAINER} chmod -R 777 storage bootstrap/cache || true
                 '''
             }
         }
@@ -108,6 +104,15 @@ pipeline {
                 docker ps
                 '''
             }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Deployment Successful!"
+        }
+        failure {
+            echo "❌ Deployment Failed! Check logs."
         }
     }
 }
