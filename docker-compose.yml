@@ -6,8 +6,7 @@ services:
     build: .
     container_name: school_app
     working_dir: /var/www
-    volumes:
-      - .:/var/www
+   
     depends_on:
       - db
     restart: unless-stopped
@@ -20,7 +19,6 @@ services:
     ports:
       - "8083:80"
     volumes:
-      - .:/var/www
       - ./nginx:/etc/nginx/conf.d
     depends_on:
       - app
