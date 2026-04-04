@@ -28,8 +28,8 @@ pipeline {
         stage('Docker Deploy') {
             steps {
                 sh '''
-                docker compose down -v || true
-                docker compose up -d --build
+                docker-compose down -v || true
+                docker-compose up -d --build
                 '''
             }
         }
