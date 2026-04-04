@@ -23,7 +23,10 @@ pipeline {
         stage('Verify Files') {
             steps {
                 sh '''
+                echo "Current Directory:"
                 pwd
+
+                echo "Project Files:"
                 ls -la
                 '''
             }
@@ -32,42 +35,58 @@ pipeline {
         stage('Setup ENV') {
             steps {
                 sh '''
+                echo "Setting up .env..."
+
                 if [ ! -f .env ]; then
                     cp .env.example .env
                 fi
 
                 sed -i 's/DB_HOST=.*/DB_HOST=db/' .env
-                sed -i 's/DB_DATABASE=.*/DB_DATABASE=school/' .env
+                sed -i 's/DB_DATABASE=.*/DB_DATABASE=sms/' .env
                 sed -i 's/DB_USERNAME=.*/DB_USERNAME=root/' .env
                 sed -i 's/DB_PASSWORD=.*/DB_PASSWORD=root/' .env
 
                 sed -i 's/APP_ENV=.*/APP_ENV=production/' .env
                 sed -i 's/APP_DEBUG=.*/APP_DEBUG=false/' .env
+
+                echo ".env configured"
                 '''
             }
         }
 
         stage('Docker Down') {
             steps {
-                sh 'docker compose down -v || true'
+                sh '''
+                echo "Stopping old containers..."
+                docker-compose down -v || true
+                '''
             }
         }
 
         stage('Docker Build & Up') {
             steps {
-                sh 'docker compose up -d --build'
+                sh '''
+                echo "Building and starting containers..."
+                docker-compose up -d --build
+                '''
             }
         }
 
         stage('Wait for Containers') {
             steps {
-                sh 'sleep 25'
+                sh '''
+                echo "Waiting for containers to be ready..."
+                sleep 25
+                '''
             }
         }
 
         stage('Check Containers') {
             steps {
-                sh 'docker ps'
+                sh '''
+                echo "Running containers:"
+                docker ps
+                '''
             }
         }
 
@@ -89,7 +108,7 @@ pipeline {
         stage('Final Status') {
             steps {
                 sh '''
-                echo "Final running containers:"
+                echo "Final container status:"
                 docker ps
                 '''
             }
@@ -98,10 +117,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ Deployment Successful!"
+            echo "✅ Deployment Successful! 🚀"
         }
         failure {
-            echo "❌ Deployment Failed!"
+            echo "❌ Deployment Failed! Check logs carefully."
         }
     }
 }
