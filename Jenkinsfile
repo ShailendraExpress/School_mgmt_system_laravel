@@ -1,37 +1,18 @@
 pipeline {
     agent any
 
-    options {
-        skipDefaultCheckout(true)
-    }
-
     stages {
 
-        
-
-        stage('Clean Workspace') {
-    steps {
-        deleteDir()
-    }
-}
-
         stage('Clone Code') {
-    steps {
-        sh '''
-        rm -rf .git
-        git init
-        git remote add origin https://github.com/ShailendraExpress/School_mgmt_system_laravel.git
-        git fetch --all
-        git reset --hard origin/main
-        '''
-    }
-}
-        
+            steps {
+                git branch: 'main', url: 'https://github.com/ShailendraExpress/School_mgmt_system_laravel.git'
+            }
+        }
 
         stage('Setup ENV') {
             steps {
                 sh '''
-                cp .env.example .env
+                cp .env.example .env || true
 
                 sed -i 's/DB_HOST=.*/DB_HOST=db/' .env
                 sed -i 's/DB_DATABASE=.*/DB_DATABASE=school/' .env
@@ -44,29 +25,35 @@ pipeline {
             }
         }
 
-        stage('Build & Run Docker') {
+        stage('Docker Deploy') {
             steps {
                 sh '''
-                docker compose down
+                docker compose down -v || true
                 docker compose up -d --build
                 '''
             }
         }
 
-       stage('Laravel Setup') {
-          steps {
-        sh '''
-        docker exec school_app bash -c "cd /var/www && php artisan key:generate"
+        stage('Laravel Setup') {
+            steps {
+                sh '''
+                docker exec school_app php artisan key:generate || true
+                docker exec school_app php artisan migrate --force || true
 
-        docker exec school_app php artisan migrate --force
+                docker exec school_app php artisan config:clear
+                docker exec school_app php artisan cache:clear
 
-        docker exec school_app php artisan config:clear
-        docker exec school_app php artisan cache:clear
+                docker exec school_app chmod -R 777 storage bootstrap/cache
+                '''
+            }
+        }
 
-        docker exec school_app chmod -R 777 storage bootstrap/cache
-        '''
-    }
-    
-}
+        stage('Verify') {
+            steps {
+                sh '''
+                docker ps
+                '''
+            }
+        }
     }
 }
