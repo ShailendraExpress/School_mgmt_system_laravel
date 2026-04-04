@@ -10,6 +10,9 @@ services:
       - .:/var/www
     depends_on:
       - db
+    restart: unless-stopped
+    networks:
+      - school_network
 
   nginx:
     image: nginx:alpine
@@ -21,18 +24,27 @@ services:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
     depends_on:
       - app
+    restart: unless-stopped
+    networks:
+      - school_network
 
   db:
     image: mysql:5.7
     container_name: school_db
     restart: always
     environment:
-      MYSQL_DATABASE: school
+      MYSQL_DATABASE: sms
       MYSQL_ROOT_PASSWORD: root
     ports:
       - "3308:3306"
     volumes:
       - db_data:/var/lib/mysql
+    networks:
+      - school_network
 
 volumes:
   db_data:
+
+networks:
+  school_network:
+    driver: bridge
