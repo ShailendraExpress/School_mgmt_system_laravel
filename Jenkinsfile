@@ -49,13 +49,13 @@ pipeline {
 
         stage('Docker Down') {
             steps {
-                sh 'docker compose down -v || true'
+                sh 'docker-compose down -v || true'
             }
         }
 
         stage('Docker Build & Up') {
             steps {
-                sh 'docker compose up -d --build'
+                sh 'docker-compose up -d --build'
             }
         }
 
