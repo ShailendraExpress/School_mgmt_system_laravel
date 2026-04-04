@@ -1,13 +1,14 @@
 version: '3.8'
 
 services:
+
   app:
     build: .
     container_name: school_app
+    volumes:
+      - .:/var/www
     depends_on:
       - db
-    volumes:
-      - .:/var/www  
 
   nginx:
     image: nginx:alpine
