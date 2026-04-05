@@ -34,48 +34,6 @@ pipeline {
             }
         }
 
-        stage('Force Fix nginx config') {
-            steps {
-                sh '''
-                echo "Fixing nginx config (force mode)..."
-
-                # ALWAYS remove (file ho ya folder)
-                rm -rf nginx/default.conf
-
-                # Recreate correct file
-                cat > nginx/default.conf <<'EOF'
-server {
-    listen 80;
-    server_name localhost;
-
-    root /var/www/public;
-    index index.php index.html;
-
-    client_max_body_size 20M;
-
-    location / {
-        try_files $uri $uri/ /index.php?$query_string;
-    }
-
-    location ~ \.php$ {
-        include fastcgi_params;
-        fastcgi_pass school_app:9000;
-        fastcgi_index index.php;
-        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-    }
-
-    location ~ /\. {
-        deny all;
-    }
-}
-EOF
-
-                echo "✅ nginx config fixed"
-                ls -l nginx/
-                '''
-            }
-        }
-
         stage('Setup ENV') {
             steps {
                 sh '''
@@ -101,7 +59,6 @@ EOF
                 sh '''
                 echo "Cleaning old containers..."
                 docker-compose down -v || true
-                docker system prune -af || true
                 '''
             }
         }
@@ -109,11 +66,8 @@ EOF
         stage('Docker Build & Run') {
             steps {
                 sh '''
-                echo "Building containers..."
-                docker-compose build --no-cache
-
-                echo "Starting containers..."
-                docker-compose up -d
+                echo "Building and starting containers..."
+                docker-compose up -d --build
                 '''
             }
         }
@@ -133,12 +87,11 @@ EOF
                 echo "Running containers:"
                 docker ps
 
-                echo "Check nginx config:"
-                docker exec school_nginx ls /etc/nginx/conf.d || true
-                docker exec school_nginx cat /etc/nginx/conf.d/default.conf || true
-
                 echo "Nginx Logs:"
                 docker logs school_nginx || true
+
+                echo "App Logs:"
+                docker logs school_app || true
                 '''
             }
         }
