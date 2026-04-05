@@ -20,32 +20,30 @@ pipeline {
             }
         }
 
-        stage('Verify Files') {
+        stage('Verify Project') {
             steps {
                 sh '''
+                echo "Checking project files..."
                 ls -la
 
                 if [ ! -f artisan ]; then
-                    echo "❌ Laravel missing"
-                    exit 1
-                fi
-
-                if [ ! -f nginx/default.conf ]; then
-                    echo "❌ nginx config missing"
+                    echo "❌ Laravel project missing"
                     exit 1
                 fi
                 '''
             }
         }
 
-        stage('Fix Wrong Folder Issue') {
+        stage('Force Fix nginx config') {
             steps {
                 sh '''
-                if [ -d nginx/default.conf ]; then
-                    echo "Fixing wrong folder..."
-                    rm -rf nginx/default.conf
-                    echo "Creating correct file..."
-                    cat > nginx/default.conf <<EOF
+                echo "Fixing nginx config (force mode)..."
+
+                # ALWAYS remove (file ho ya folder)
+                rm -rf nginx/default.conf
+
+                # Recreate correct file
+                cat > nginx/default.conf <<'EOF'
 server {
     listen 80;
     server_name localhost;
@@ -53,23 +51,27 @@ server {
     root /var/www/public;
     index index.php index.html;
 
+    client_max_body_size 20M;
+
     location / {
-        try_files \$uri \$uri/ /index.php?\$query_string;
+        try_files $uri $uri/ /index.php?$query_string;
     }
 
-    location ~ \\.php$ {
+    location ~ \.php$ {
         include fastcgi_params;
         fastcgi_pass school_app:9000;
         fastcgi_index index.php;
-        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
     }
 
-    location ~ /\\. {
+    location ~ /\. {
         deny all;
     }
 }
 EOF
-                fi
+
+                echo "✅ nginx config fixed"
+                ls -l nginx/
                 '''
             }
         }
@@ -77,12 +79,29 @@ EOF
         stage('Setup ENV') {
             steps {
                 sh '''
+                echo "Setting up .env..."
+
                 cp .env.example .env || true
 
                 sed -i 's/DB_HOST=.*/DB_HOST=db/' .env
                 sed -i 's/DB_DATABASE=.*/DB_DATABASE=sms/' .env
                 sed -i 's/DB_USERNAME=.*/DB_USERNAME=root/' .env
                 sed -i 's/DB_PASSWORD=.*/DB_PASSWORD=root/' .env
+
+                sed -i 's/APP_ENV=.*/APP_ENV=production/' .env
+                sed -i 's/APP_DEBUG=.*/APP_DEBUG=false/' .env
+
+                echo "✅ .env ready"
+                '''
+            }
+        }
+
+        stage('Docker Clean') {
+            steps {
+                sh '''
+                echo "Cleaning old containers..."
+                docker-compose down -v || true
+                docker system prune -af || true
                 '''
             }
         }
@@ -90,8 +109,36 @@ EOF
         stage('Docker Build & Run') {
             steps {
                 sh '''
-                docker-compose down -v || true
-                docker-compose up -d --build
+                echo "Building containers..."
+                docker-compose build --no-cache
+
+                echo "Starting containers..."
+                docker-compose up -d
+                '''
+            }
+        }
+
+        stage('Wait for Containers') {
+            steps {
+                sh '''
+                echo "Waiting for services..."
+                sleep 20
+                '''
+            }
+        }
+
+        stage('Check Containers') {
+            steps {
+                sh '''
+                echo "Running containers:"
+                docker ps
+
+                echo "Check nginx config:"
+                docker exec school_nginx ls /etc/nginx/conf.d || true
+                docker exec school_nginx cat /etc/nginx/conf.d/default.conf || true
+
+                echo "Nginx Logs:"
+                docker logs school_nginx || true
                 '''
             }
         }
@@ -99,11 +146,25 @@ EOF
         stage('Laravel Setup') {
             steps {
                 sh '''
-                sleep 15
+                echo "Running Laravel setup..."
 
                 docker exec ${APP_CONTAINER} php artisan key:generate
                 docker exec ${APP_CONTAINER} php artisan migrate --force
+                docker exec ${APP_CONTAINER} php artisan config:clear
+                docker exec ${APP_CONTAINER} php artisan cache:clear
+
                 docker exec ${APP_CONTAINER} chmod -R 777 storage bootstrap/cache
+
+                echo "✅ Laravel ready"
+                '''
+            }
+        }
+
+        stage('Final Status') {
+            steps {
+                sh '''
+                echo "Final containers:"
+                docker ps
                 '''
             }
         }
@@ -111,10 +172,10 @@ EOF
 
     post {
         success {
-            echo "✅ SUCCESS"
+            echo "✅ Deployment Successful 🚀"
         }
         failure {
-            echo "❌ FAILED"
+            echo "❌ Deployment Failed"
         }
     }
 }
