@@ -19,7 +19,8 @@ services:
     ports:
       - "8083:80"
     volumes:
-      - ./nginx:/etc/nginx/conf.d
+      
+      - ./docker/nginx:/etc/nginx/conf.d
     depends_on:
       - app
     restart: unless-stopped
