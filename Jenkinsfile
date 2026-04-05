@@ -5,6 +5,16 @@ pipeline {
         APP_CONTAINER = "school_app"
     }
 
+        stage('Docker Build & Run') {
+        steps {
+            sh '''
+            export PWD=$(pwd)
+            docker-compose down || true
+            docker-compose up -d --build
+            '''
+        }
+    }
+
     stages {
 
         stage('Clean Workspace') {
