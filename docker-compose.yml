@@ -4,10 +4,7 @@ services:
 
   app:
     build: .
-    container_name: school_app
-    
-    volumes:
-      - .:/var/www  
+    container_name: school_app 
     depends_on:
       - db
 
@@ -18,9 +15,8 @@ services:
       - "8083:80"
     depends_on:
       - app
-    volumes:
-      - .:/var/www
-     
+ 
+    
 
   db:
     image: mysql:8.0
