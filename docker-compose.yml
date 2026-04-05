@@ -9,7 +9,7 @@ services:
       - db
 
   nginx:
-    build: ./nginx
+    image: nginx:latest
     container_name: school_nginx
     ports:
       - "8083:80"
@@ -17,6 +17,7 @@ services:
       - app
     volumes:
       - .:/var/www   # 🔥 proper indentation
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
 
   db:
     image: mysql:8.0
