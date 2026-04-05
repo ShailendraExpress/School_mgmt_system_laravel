@@ -5,7 +5,16 @@ pipeline {
         APP_CONTAINER = "school_app"
     }
 
+
     stages {
+
+
+        
+        stage('Clean Workspace') {
+            steps {
+                deleteDir()
+            }
+        }
 
         stage('Clean Workspace') {
             steps {
