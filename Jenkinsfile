@@ -7,9 +7,14 @@ pipeline {
 
     stages {
 
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
         stage('Checkout Code') {
             steps {
-                // Clean + clone in one step (safer than deleteDir + git)
                 checkout scmGit(
                     branches: [[name: '*/main']],
                     userRemoteConfigs: [[
@@ -28,9 +33,17 @@ pipeline {
                 echo "Project Files:"
                 ls -la
 
+                echo "Check nginx folder:"
+                ls -la nginx || true
+
                 echo "IMPORTANT CHECK:"
                 if [ ! -f artisan ]; then
                     echo "❌ Laravel files missing!"
+                    exit 1
+                fi
+
+                if [ ! -f nginx/default.conf ]; then
+                    echo "❌ nginx config missing!"
                     exit 1
                 fi
                 '''
@@ -62,6 +75,9 @@ pipeline {
                 sh '''
                 echo "Stopping old containers..."
                 docker-compose down -v || true
+
+                echo "Cleaning old Docker cache..."
+                docker system prune -af || true
                 '''
             }
         }
@@ -69,8 +85,11 @@ pipeline {
         stage('Docker Build & Up') {
             steps {
                 sh '''
-                echo "Building and starting containers..."
-                docker-compose up -d --build
+                echo "Building WITHOUT CACHE..."
+                docker-compose build --no-cache
+
+                echo "Starting containers..."
+                docker-compose up -d
                 '''
             }
         }
@@ -79,7 +98,7 @@ pipeline {
             steps {
                 sh '''
                 echo "Waiting for services..."
-                sleep 30
+                sleep 20
                 '''
             }
         }
@@ -89,6 +108,10 @@ pipeline {
                 sh '''
                 echo "Running containers:"
                 docker ps
+
+                echo "Check nginx config inside container:"
+                docker exec school_nginx ls /etc/nginx/conf.d || true
+                docker exec school_nginx cat /etc/nginx/conf.d/default.conf || true
 
                 echo "Nginx Logs:"
                 docker logs school_nginx || true
@@ -100,6 +123,8 @@ pipeline {
             steps {
                 sh '''
                 echo "Running Laravel setup..."
+
+                docker exec ${APP_CONTAINER} ls /var/www || true
 
                 docker exec ${APP_CONTAINER} php artisan key:generate || true
                 docker exec ${APP_CONTAINER} php artisan migrate --force || true
