@@ -9,9 +9,7 @@ services:
       - db
 
   nginx:
-    build:
-      context: .
-      dockerfile: nginx/Dockerfile
+    build: ./nginx
     container_name: school_nginx
     ports:
       - "8083:80"
