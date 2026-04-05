@@ -102,12 +102,11 @@ pipeline {
                 sh '''
                 echo "Running Laravel setup..."
 
-                docker exec ${APP_CONTAINER} php artisan key:generate
-                docker exec ${APP_CONTAINER} php artisan migrate --force
-                docker exec ${APP_CONTAINER} php artisan config:clear
-                docker exec ${APP_CONTAINER} php artisan cache:clear
-
-                docker exec ${APP_CONTAINER} chmod -R 777 storage bootstrap/cache
+                docker exec ${APP_CONTAINER} sh -c "cd /var/www && php artisan key:generate"
+                    docker exec ${APP_CONTAINER} sh -c "cd /var/www && php artisan migrate --force"
+                    docker exec ${APP_CONTAINER} sh -c "cd /var/www && php artisan config:clear"
+                    docker exec ${APP_CONTAINER} sh -c "cd /var/www && php artisan cache:clear"
+                    docker exec ${APP_CONTAINER} chmod -R 777 storage bootstrap/cache
 
                 echo "✅ Laravel ready"
                 '''
