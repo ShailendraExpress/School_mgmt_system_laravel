@@ -9,12 +9,12 @@ services:
       - db
 
   nginx:
-    build: ./nginx
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
     container_name: school_nginx
     ports:
       - "8083:80"
-    volumes:
-    - .:/var/www  
     depends_on:
       - app
 
