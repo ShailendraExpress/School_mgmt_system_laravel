@@ -4,20 +4,22 @@ services:
 
   app:
     build: .
-    container_name: school_app 
+    container_name: school_app
     depends_on:
       - db
+    volumes:
+      - .:/var/www
 
   nginx:
-    image: nginx:latest
+    image: nginx:alpine
     container_name: school_nginx
     ports:
       - "8083:80"
     depends_on:
       - app
     volumes:
-      - .:/var/www   # 🔥 proper indentation
-      
+      - .:/var/www
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf   # 🔥 must
 
   db:
     image: mysql:8.0
