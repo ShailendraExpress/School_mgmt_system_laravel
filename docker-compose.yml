@@ -5,8 +5,6 @@ services:
   app:
     build: .
     container_name: school_app
-    volumes:
-      - .:/var/www
     depends_on:
       - db
 
