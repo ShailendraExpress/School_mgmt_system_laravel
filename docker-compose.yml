@@ -1,10 +1,11 @@
 version: '3.8'
 
 services:
-
   app:
     build: .
     container_name: school_app 
+    volumes:
+      - .:/var/www          # Ye line honi chahiye
     depends_on:
       - db
 
@@ -13,12 +14,10 @@ services:
     container_name: school_nginx
     ports:
       - "8083:80"
+    volumes:
+      - .:/var/www          # YE SABSE ZAROORI HAI: Nginx ko bhi code dikhna chahiye
     depends_on:
       - app
-    volumes:
-    - .:/var/www  
- 
-    
 
   db:
     image: mysql:8.0
