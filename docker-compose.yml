@@ -1,13 +1,11 @@
 version: '3.8'
 
 services:
-  services:
   app:
     build: .
-    container_name: school_app 
+    container_name: school_app
     volumes:
-      # Yahan "." ki jagah pura path likhein jo aapne upar 'inspect' se nikala
-      - /var/jenkins_home/workspace/school_app:/var/www
+      - .:/var/www
     depends_on:
       - db
 
@@ -17,17 +15,10 @@ services:
     ports:
       - "8083:80"
     volumes:
-      - /var/jenkins_home/workspace/school_app:/var/www
+      - .:/var/www
     depends_on:
       - app
-    build: ./nginx
-    container_name: school_nginx
-    ports:
-      - "8083:80"
-    volumes:
-      - .:/var/www          # YE SABSE ZAROORI HAI: Nginx ko bhi code dikhna chahiye
-    depends_on:
-      - app
+
   db:
     image: mysql:8.0
     container_name: school_db
@@ -36,5 +27,6 @@ services:
       MYSQL_ROOT_PASSWORD: root
     volumes:
       - db_data:/var/lib/mysql
+
 volumes:
   db_data:
