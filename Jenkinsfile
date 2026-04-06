@@ -32,14 +32,16 @@ pipeline {
             steps {
                 sh '''
                 echo "--- Finding Host Path ---"
+                # Ye line Jenkins container ke bahar ka asli path dhoondti hai
                 export HOST_PWD=$(docker inspect jenkins --format '{{ range .Mounts }}{{ if eq .Destination "/var/jenkins_home" }}{{ .Source }}{{ end }}{{ end }}')
                 export PROJECT_PATH="${HOST_PWD}/workspace/${JOB_NAME}"
                 
                 echo "--- Cleaning Old Containers ---"
-                docker rm -f ${APP_CONTAINER} ${NGINX_CONTAINER} ${DB_CONTAINER} || true
+                docker-compose down || true
+                docker rm -f school_app school_nginx school_db || true
                 
-                echo "--- Starting Services ---"
-                # Hum environment variable pass kar rahe hain taaki docker-compose ko host path mile
+                echo "--- Deploying from: ${PROJECT_PATH} ---"
+                # Hum APP_PATH variable bhej rahe hain docker-compose ko
                 export APP_PATH=${PROJECT_PATH}
                 docker-compose up -d --build
                 '''
