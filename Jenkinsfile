@@ -21,15 +21,19 @@ pipeline {
             }
         }
 
-        stage('2. Keep DB Safe & Running') {
+        stage('2. Smart Restart Containers') {
             steps {
                 sh '''
                 export HOST_PWD=$(docker inspect jenkins --format '{{ range .Mounts }}{{ if eq .Destination "/var/jenkins_home" }}{{ .Source }}{{ end }}{{ end }}')
                 export PROJECT_PATH="${HOST_PWD}/workspace/${JOB_NAME}"
                 export APP_PATH=${PROJECT_PATH}
                 
-                # Yeh line 'down' nahi karegi. Container chalte rahenge.
-                docker-compose up -d
+                # UPDATE: Pehle purane containers ko gracefully stop/remove karega (bina data udaye)
+                # Taki "Name already in use" wala error kabhi na aaye.
+                docker-compose down || true
+                
+                # Phir naye containers banayega
+                docker-compose up -d --build
                 '''
             }
         }
@@ -37,7 +41,7 @@ pipeline {
         stage('3. Instant Laravel Update') {
             steps {
                 sh '''
-                # 1. Environment file check (agar delete ho gayi thi toh wapas banayega)
+                # 1. Environment file check
                 if [ ! -f .env ]; then
                     echo "Creating new .env file..."
                     cp .env.example .env
@@ -47,8 +51,10 @@ pipeline {
                     sed -i 's/DB_PASSWORD=.*/DB_PASSWORD=root/' .env
                 fi
 
-                # 2. Composer packages install karega (Vendor folder wapas layega)
-                # Note: Agar packages pehle se hain, toh yeh 2 second mein skip ho jayega!
+                echo "Waiting 10 seconds for DB to wake up..."
+                sleep 10
+
+                # 2. Composer packages install karega (bahut zaruri, iske bina Laravel fail hota hai)
                 docker exec ${APP_CONTAINER} composer install --no-interaction --prefer-dist --optimize-autoloader
 
                 # 3. Permissions theek karega
