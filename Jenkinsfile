@@ -8,11 +8,24 @@ pipeline {
     }
 
     stages {
-        stage('Clean & Checkout') {
+        stage('Emergency Cleanup') {
             steps {
-                deleteDir()
-                git branch: 'main', 
-                    url: 'https://github.com/ShailendraExpress/School_mgmt_system_laravel.git'
+                script {
+                    echo "--- Fixing Permissions Before Checkout ---"
+                    // Hum Alpine container use karke workspace ki ownership Jenkins (ID 1000) ko wapas de rahe hain
+                    // Isse 'Permission Denied' wala error checkout mein nahi aayega
+                    sh 'docker run --rm -v ${WORKSPACE}:/workspace alpine chown -R 1000:1000 /workspace || true'
+                    
+                    echo "--- Cleaning Workspace ---"
+                    deleteDir()
+                }
+            }
+        }
+
+        stage('Checkout Code') {
+            steps {
+                // Fresh code pull karein
+                checkout scm
             }
         }
 
@@ -32,6 +45,7 @@ pipeline {
             steps {
                 sh '''
                 echo "--- Finding Host Path ---"
+                # Jenkins container ke bahar ka asli path nikalna zaroori hai mount ke liye
                 export HOST_PWD=$(docker inspect jenkins --format '{{ range .Mounts }}{{ if eq .Destination "/var/jenkins_home" }}{{ .Source }}{{ end }}{{ end }}')
                 export PROJECT_PATH="${HOST_PWD}/workspace/${JOB_NAME}"
                 
@@ -48,13 +62,14 @@ pipeline {
 
         stage('Laravel Setup & Permissions') {
             steps {
-                // Wait for containers to be ready
+                echo "Waiting for containers to stabilize..."
                 sleep 20
                 sh '''
-                echo "--- Installing Composer Dependencies ---"
+                echo "--- Installing Dependencies ---"
                 docker exec ${APP_CONTAINER} composer install --no-interaction --prefer-dist --optimize-autoloader
 
-                echo "--- Setting Permissions ---"
+                echo "--- Setting Permissions inside Container ---"
+                # Laravel ko storage folder mein likhne ki ijazat dena
                 docker exec ${APP_CONTAINER} chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
                 docker exec ${APP_CONTAINER} chmod -R 775 /var/www/storage /var/www/bootstrap/cache
                 
@@ -69,11 +84,11 @@ pipeline {
     }
 
     post {
-        success {
-            echo "🚀 Deployment Successful! Check: http://103.160.107.245:8083"
+        success { 
+            echo "🚀 Deployment Successful! URL: http://103.160.107.245:8083" 
         }
-        failure {
-            echo "❌ Deployment Failed. Check logs above."
+        failure { 
+            echo "❌ Deployment Failed. Check logs above." 
         }
     }
 }
