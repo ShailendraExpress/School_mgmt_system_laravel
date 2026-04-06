@@ -3,66 +3,76 @@ pipeline {
 
     environment {
         APP_CONTAINER = "school_app"
+        NGINX_CONTAINER = "school_nginx"
+        DB_CONTAINER = "school_db"
     }
 
     stages {
-        stage('1. Pull New Code') {
+        stage('Checkout & Force Repair') {
             steps {
                 script {
-                    echo "--- Sirf Naya Code Pull Kar Rahe Hain ---"
+                    echo "--- Attempting Code Checkout ---"
                     try {
                         checkout scm
                     } catch (Exception e) {
-                        echo "Permissions locked! Clearing old cache..."
+                        echo "Permissions locked! Forcing root cleanup..."
+                        // Use Docker to wipe the workspace as root
                         sh 'docker run --rm --user root -v ${WORKSPACE}:/workspace alpine sh -c "rm -rf /workspace/* /workspace/.* || true"'
+                        echo "Workspace repaired. Retrying checkout..."
                         checkout scm
                     }
                 }
             }
         }
 
-        stage('2. Smart Restart Containers') {
+        stage('Setup Environment') {
             steps {
                 sh '''
+                cp .env.example .env || true
+                sed -i 's/DB_HOST=.*/DB_HOST=db/' .env
+                sed -i 's/DB_DATABASE=.*/DB_DATABASE=sms/' .env
+                sed -i 's/DB_USERNAME=.*/DB_USERNAME=root/' .env
+                sed -i 's/DB_PASSWORD=.*/DB_PASSWORD=root/' .env
+                '''
+            }
+        }
+
+        stage('Docker Deploy') {
+            steps {
+                sh '''
+                echo "--- Finding Host Path ---"
+                # This finds the actual path on the host machine for Docker volumes
                 export HOST_PWD=$(docker inspect jenkins --format '{{ range .Mounts }}{{ if eq .Destination "/var/jenkins_home" }}{{ .Source }}{{ end }}{{ end }}')
                 export PROJECT_PATH="${HOST_PWD}/workspace/${JOB_NAME}"
-                export APP_PATH=${PROJECT_PATH}
                 
-                # UPDATE: Pehle purane containers ko gracefully stop/remove karega (bina data udaye)
-                # Taki "Name already in use" wala error kabhi na aaye.
+                echo "--- Cleaning Old Containers ---"
                 docker-compose down || true
                 
-                # Phir naye containers banayega
+                echo "--- Starting Services ---"
+                export APP_PATH=${PROJECT_PATH}
                 docker-compose up -d --build
                 '''
             }
         }
 
-        stage('3. Instant Laravel Update') {
+        stage('Laravel Setup & Permissions') {
             steps {
+                echo "Waiting for containers to stabilize..."
+                sleep 20
                 sh '''
-                # 1. Environment file check
-                if [ ! -f .env ]; then
-                    echo "Creating new .env file..."
-                    cp .env.example .env
-                    sed -i 's/DB_HOST=.*/DB_HOST=db/' .env
-                    sed -i 's/DB_DATABASE=.*/DB_DATABASE=sms/' .env
-                    sed -i 's/DB_USERNAME=.*/DB_USERNAME=root/' .env
-                    sed -i 's/DB_PASSWORD=.*/DB_PASSWORD=root/' .env
-                fi
-
-                echo "Waiting 10 seconds for DB to wake up..."
-                sleep 10
-
-                # 2. Composer packages install karega (bahut zaruri, iske bina Laravel fail hota hai)
+                echo "--- Installing Dependencies ---"
                 docker exec ${APP_CONTAINER} composer install --no-interaction --prefer-dist --optimize-autoloader
 
-                # 3. Permissions theek karega
-                docker exec ${APP_CONTAINER} chown -R www-data:www-data storage bootstrap/cache || true
-                docker exec ${APP_CONTAINER} chmod -R 775 storage bootstrap/cache || true
+                echo "--- Fixing Permissions for Web Server ---"
+                # Give ownership to www-data inside the container
+                docker exec ${APP_CONTAINER} chown -R www-data:www-data storage bootstrap/cache
+                docker exec ${APP_CONTAINER} chmod -R 775 storage bootstrap/cache
                 
-                # 4. View Cache clear karega taaki naya Blade design turant dikhe
-                docker exec ${APP_CONTAINER} php artisan view:clear
+                echo "--- Running Laravel Commands ---"
+                docker exec ${APP_CONTAINER} php artisan key:generate --force
+                docker exec ${APP_CONTAINER} php artisan config:clear
+                docker exec ${APP_CONTAINER} php artisan cache:clear
+                docker exec ${APP_CONTAINER} php artisan migrate --force
                 '''
             }
         }
@@ -70,7 +80,7 @@ pipeline {
 
     post {
         success { 
-            echo "🚀 FAST Update Successful! URL: http://103.160.107.245:8083" 
+            echo "🚀 Deployment Successful! URL: http://103.160.107.245:8083" 
         }
         failure { 
             echo "❌ Deployment Failed. Check logs above." 
