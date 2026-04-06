@@ -11,12 +11,12 @@ pipeline {
         stage('Emergency Cleanup') {
             steps {
                 script {
-                    echo "--- Fixing Permissions Before Checkout ---"
-                    // Hum Alpine container use karke workspace ki ownership Jenkins (ID 1000) ko wapas de rahe hain
-                    // Isse 'Permission Denied' wala error checkout mein nahi aayega
-                    sh 'docker run --rm -v ${WORKSPACE}:/workspace alpine chown -R 1000:1000 /workspace || true'
+                    echo "--- Cleaning Workspace with Root Power ---"
+                    // UPDATE: --user root aur rm -rf ka use karein
+                    // Isse www-data ki banayi hui locked files saaf ho jayengi
+                    sh 'docker run --rm --user root -v ${WORKSPACE}:/workspace alpine sh -c "rm -rf /workspace/* /workspace/.* || true"'
                     
-                    echo "--- Cleaning Workspace ---"
+                    echo "--- Cleaning Jenkins Meta Data ---"
                     deleteDir()
                 }
             }
@@ -24,7 +24,6 @@ pipeline {
 
         stage('Checkout Code') {
             steps {
-                // Fresh code pull karein
                 checkout scm
             }
         }
@@ -45,13 +44,12 @@ pipeline {
             steps {
                 sh '''
                 echo "--- Finding Host Path ---"
-                # Jenkins container ke bahar ka asli path nikalna zaroori hai mount ke liye
+                # Jenkins container ke bahar ka asli path nikalna
                 export HOST_PWD=$(docker inspect jenkins --format '{{ range .Mounts }}{{ if eq .Destination "/var/jenkins_home" }}{{ .Source }}{{ end }}{{ end }}')
                 export PROJECT_PATH="${HOST_PWD}/workspace/${JOB_NAME}"
                 
                 echo "--- Cleaning Old Containers ---"
                 docker-compose down || true
-                docker rm -f ${APP_CONTAINER} ${NGINX_CONTAINER} ${DB_CONTAINER} || true
                 
                 echo "--- Starting Services ---"
                 export APP_PATH=${PROJECT_PATH}
@@ -68,27 +66,15 @@ pipeline {
                 echo "--- Installing Dependencies ---"
                 docker exec ${APP_CONTAINER} composer install --no-interaction --prefer-dist --optimize-autoloader
 
-                echo "--- Setting Permissions inside Container ---"
-                # Laravel ko storage folder mein likhne ki ijazat dena
-                docker exec ${APP_CONTAINER} chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
-                docker exec ${APP_CONTAINER} chmod -R 775 /var/www/storage /var/www/bootstrap/cache
+                echo "--- Fixing Permissions for Web Server ---"
+                docker exec ${APP_CONTAINER} chown -R www-data:www-data storage bootstrap/cache
+                docker exec ${APP_CONTAINER} chmod -R 775 storage bootstrap/cache
                 
                 echo "--- Running Laravel Commands ---"
                 docker exec ${APP_CONTAINER} php artisan key:generate --force
-                docker exec ${APP_CONTAINER} php artisan config:clear
-                docker exec ${APP_CONTAINER} php artisan cache:clear
                 docker exec ${APP_CONTAINER} php artisan migrate --force
                 '''
             }
-        }
-    }
-
-    post {
-        success { 
-            echo "🚀 Deployment Successful! URL: http://103.160.107.245:8083" 
-        }
-        failure { 
-            echo "❌ Deployment Failed. Check logs above." 
         }
     }
 }
