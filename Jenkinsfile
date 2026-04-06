@@ -8,23 +8,20 @@ pipeline {
     }
 
     stages {
-        stage('Emergency Cleanup') {
+        stage('Checkout & Force Repair') {
             steps {
                 script {
-                    echo "--- Cleaning Workspace with Root Power ---"
-                    // UPDATE: --user root aur rm -rf ka use karein
-                    // Isse www-data ki banayi hui locked files saaf ho jayengi
-                    sh 'docker run --rm --user root -v ${WORKSPACE}:/workspace alpine sh -c "rm -rf /workspace/* /workspace/.* || true"'
-                    
-                    echo "--- Cleaning Jenkins Meta Data ---"
-                    deleteDir()
+                    echo "--- Attempting Code Checkout ---"
+                    try {
+                        checkout scm
+                    } catch (Exception e) {
+                        echo "Permissions locked! Forcing root cleanup..."
+                        // Use Docker to wipe the workspace as root
+                        sh 'docker run --rm --user root -v ${WORKSPACE}:/workspace alpine sh -c "rm -rf /workspace/* /workspace/.* || true"'
+                        echo "Workspace repaired. Retrying checkout..."
+                        checkout scm
+                    }
                 }
-            }
-        }
-
-        stage('Checkout Code') {
-            steps {
-                checkout scm
             }
         }
 
@@ -44,7 +41,7 @@ pipeline {
             steps {
                 sh '''
                 echo "--- Finding Host Path ---"
-                # Jenkins container ke bahar ka asli path nikalna
+                # This finds the actual path on the host machine for Docker volumes
                 export HOST_PWD=$(docker inspect jenkins --format '{{ range .Mounts }}{{ if eq .Destination "/var/jenkins_home" }}{{ .Source }}{{ end }}{{ end }}')
                 export PROJECT_PATH="${HOST_PWD}/workspace/${JOB_NAME}"
                 
@@ -67,14 +64,26 @@ pipeline {
                 docker exec ${APP_CONTAINER} composer install --no-interaction --prefer-dist --optimize-autoloader
 
                 echo "--- Fixing Permissions for Web Server ---"
+                # Give ownership to www-data inside the container
                 docker exec ${APP_CONTAINER} chown -R www-data:www-data storage bootstrap/cache
                 docker exec ${APP_CONTAINER} chmod -R 775 storage bootstrap/cache
                 
                 echo "--- Running Laravel Commands ---"
                 docker exec ${APP_CONTAINER} php artisan key:generate --force
+                docker exec ${APP_CONTAINER} php artisan config:clear
+                docker exec ${APP_CONTAINER} php artisan cache:clear
                 docker exec ${APP_CONTAINER} php artisan migrate --force
                 '''
             }
+        }
+    }
+
+    post {
+        success { 
+            echo "🚀 Deployment Successful! URL: http://103.160.107.245:8083" 
+        }
+        failure { 
+            echo "❌ Deployment Failed. Check logs above." 
         }
     }
 }
