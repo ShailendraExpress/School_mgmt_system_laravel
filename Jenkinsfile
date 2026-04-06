@@ -3,121 +3,80 @@ pipeline {
 
     environment {
         APP_CONTAINER = "school_app"
+        NGINX_CONTAINER = "school_nginx"
     }
 
     stages {
-
-        stage('Clean Workspace') {
+        stage('Clean & Checkout') {
             steps {
-                cleanWs()
-            }
-        }
-
-        stage('Checkout Code') {
-            steps {
-                git branch: 'main',
+                // Workspace ko puri tarah saaf karke fresh pull karega
+                deleteDir()
+                git branch: 'main', 
                     url: 'https://github.com/ShailendraExpress/School_mgmt_system_laravel.git'
             }
         }
 
-        stage('Verify Project') {
+        stage('Verify Files') {
             steps {
                 sh '''
-                echo "Checking project files..."
+                echo "--- Checking Files ---"
                 ls -la
-
-                if [ ! -f artisan ]; then
-                    echo "❌ Laravel project missing"
+                if [ ! -f docker-compose.yml ]; then
+                    echo "❌ Error: docker-compose.yml not found in workspace!"
                     exit 1
                 fi
                 '''
             }
         }
 
-        stage('Setup ENV') {
+        stage('Setup Environment') {
             steps {
                 sh '''
-                echo "Setting up .env..."
-
-                cp .env.example .env || true
-
+                if [ ! -f .env ]; then
+                    cp .env.example .env || true
+                fi
                 sed -i 's/DB_HOST=.*/DB_HOST=db/' .env
                 sed -i 's/DB_DATABASE=.*/DB_DATABASE=sms/' .env
                 sed -i 's/DB_USERNAME=.*/DB_USERNAME=root/' .env
                 sed -i 's/DB_PASSWORD=.*/DB_PASSWORD=root/' .env
-
-                sed -i 's/APP_ENV=.*/APP_ENV=production/' .env
-                sed -i 's/APP_DEBUG=.*/APP_DEBUG=false/' .env
-
-                echo "✅ .env ready"
+                echo "✅ .env configured"
                 '''
             }
         }
 
-        stage('Docker Clean') {
+        stage('Docker Deploy') {
             steps {
                 sh '''
-                echo "Cleaning old containers..."
-                docker-compose down -v || true
-                '''
-            }
-        }
-
-        stage('Docker Build & Run') {
-            steps {
-                sh '''
-                echo "Building and starting containers..."
-                export PWD=$(pwd)
+                echo "--- Restarting Containers ---"
+                # -v nahi lagaya hai taaki DB data delete na ho
+                docker-compose down || true
                 docker-compose up -d --build
                 '''
             }
         }
 
-        stage('Wait for Containers') {
+        stage('Wait & Health Check') {
             steps {
+                sleep 15
                 sh '''
-                echo "Waiting for services..."
-                sleep 20
-                '''
-            }
-        }
-
-        stage('Check Containers') {
-            steps {
-                sh '''
-                echo "Running containers:"
                 docker ps
-
-                echo "Nginx Logs:"
-                docker logs school_nginx || true
-
-                echo "App Logs:"
-                docker logs school_app || true
+                # Check if Nginx can see the public folder
+                docker exec ${NGINX_CONTAINER} ls -l /var/www/public || echo "❌ Nginx still cannot see files!"
                 '''
             }
         }
 
-        stage('Laravel Setup') {
+        stage('Laravel Optimization & Permissions') {
             steps {
                 sh '''
-                echo "Running Laravel setup..."
-
-                docker exec ${APP_CONTAINER} sh -c "cd /var/www && php artisan key:generate"
-                    docker exec ${APP_CONTAINER} sh -c "cd /var/www && php artisan migrate --force"
-                    docker exec ${APP_CONTAINER} sh -c "cd /var/www && php artisan config:clear"
-                    docker exec ${APP_CONTAINER} sh -c "cd /var/www && php artisan cache:clear"
-                    docker exec ${APP_CONTAINER} chmod -R 777 storage bootstrap/cache
-
-                echo "✅ Laravel ready"
-                '''
-            }
-        }
-
-        stage('Final Status') {
-            steps {
-                sh '''
-                echo "Final containers:"
-                docker ps
+                echo "--- Setting Permissions ---"
+                docker exec ${APP_CONTAINER} chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
+                docker exec ${APP_CONTAINER} chmod -R 775 /var/www/storage /var/www/bootstrap/cache
+                
+                echo "--- Laravel Commands ---"
+                docker exec ${APP_CONTAINER} php artisan key:generate --force
+                docker exec ${APP_CONTAINER} php artisan config:cache
+                docker exec ${APP_CONTAINER} php artisan migrate --force
                 '''
             }
         }
@@ -125,10 +84,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ Deployment Successful 🚀"
+            echo "🚀 Deployment Successful! Site should be live at :8083"
         }
         failure {
-            echo "❌ Deployment Failed"
+            echo "❌ Deployment Failed. Check Jenkins logs above."
         }
     }
 }
