@@ -47,10 +47,21 @@ pipeline {
         stage('Docker Deploy') {
             steps {
                 sh '''
-                echo "--- Restarting Containers ---"
-                # -v nahi lagaya hai taaki DB data delete na ho
+                echo "--- Finding Host Path ---"
+                # Ye command Jenkins container ke andar se bahar ka asli path dhoondti hai
+                export HOST_PWD=$(docker inspect jenkins --format '{{ range .Mounts }}{{ if eq .Destination "/var/jenkins_home" }}{{ .Source }}{{ end }}{{ end }}')
+                export PROJECT_PATH="${HOST_PWD}/workspace/${JOB_NAME}"
+                
+                echo "Deploying from: ${PROJECT_PATH}"
+                
                 docker-compose down || true
-                docker-compose up -d --build
+                
+                # Hum manually volume mount override kar rahe hain
+                docker run -d --name school_app -v ${PROJECT_PATH}:/var/www school_app-app
+                docker run -d --name school_nginx -p 8083:80 -v ${PROJECT_PATH}:/var/www school_app-nginx
+                
+                # Ya phir agar aap compose hi use karna chahte hain:
+                # docker-compose up -d --build
                 '''
             }
         }
