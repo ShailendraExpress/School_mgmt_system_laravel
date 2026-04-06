@@ -5,8 +5,10 @@ services:
     build: .
     container_name: school_app
     volumes:
-      # . ki jagah variable use karein
+      # Code mount karne ke liye
       - ${APP_PATH:-.}:/var/www
+      # Vendor folder ko overwrite se bachane ke liye (Anonymous Volume)
+      - /var/www/vendor
     depends_on:
       - db
 

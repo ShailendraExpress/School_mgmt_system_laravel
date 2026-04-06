@@ -32,31 +32,36 @@ pipeline {
             steps {
                 sh '''
                 echo "--- Finding Host Path ---"
-                # Ye line Jenkins container ke bahar ka asli path dhoondti hai
                 export HOST_PWD=$(docker inspect jenkins --format '{{ range .Mounts }}{{ if eq .Destination "/var/jenkins_home" }}{{ .Source }}{{ end }}{{ end }}')
                 export PROJECT_PATH="${HOST_PWD}/workspace/${JOB_NAME}"
                 
                 echo "--- Cleaning Old Containers ---"
                 docker-compose down || true
-                docker rm -f school_app school_nginx school_db || true
+                docker rm -f ${APP_CONTAINER} ${NGINX_CONTAINER} ${DB_CONTAINER} || true
                 
-                echo "--- Deploying from: ${PROJECT_PATH} ---"
-                # Hum APP_PATH variable bhej rahe hain docker-compose ko
+                echo "--- Starting Services ---"
                 export APP_PATH=${PROJECT_PATH}
                 docker-compose up -d --build
                 '''
             }
         }
 
-        stage('Wait & Permissions') {
+        stage('Laravel Setup & Permissions') {
             steps {
+                // Wait for containers to be ready
                 sleep 20
                 sh '''
+                echo "--- Installing Composer Dependencies ---"
+                docker exec ${APP_CONTAINER} composer install --no-interaction --prefer-dist --optimize-autoloader
+
+                echo "--- Setting Permissions ---"
                 docker exec ${APP_CONTAINER} chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
                 docker exec ${APP_CONTAINER} chmod -R 775 /var/www/storage /var/www/bootstrap/cache
                 
+                echo "--- Running Laravel Commands ---"
                 docker exec ${APP_CONTAINER} php artisan key:generate --force
                 docker exec ${APP_CONTAINER} php artisan config:clear
+                docker exec ${APP_CONTAINER} php artisan cache:clear
                 docker exec ${APP_CONTAINER} php artisan migrate --force
                 '''
             }
@@ -64,7 +69,11 @@ pipeline {
     }
 
     post {
-        success { echo "🚀 Site Live at http://103.160.107.245:8083" }
-        failure { echo "❌ Deployment Failed" }
+        success {
+            echo "🚀 Deployment Successful! Check: http://103.160.107.245:8083"
+        }
+        failure {
+            echo "❌ Deployment Failed. Check logs above."
+        }
     }
 }
