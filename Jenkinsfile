@@ -9,6 +9,23 @@ pipeline {
 
     stages {
 
+        stage('Fix Permissions & Clean Workspace') {
+            steps {
+                sh '''
+                echo "--- Fixing Workspace Permissions ---"
+
+                # Force ownership back to Jenkins user
+                docker run --rm \
+                -v ${WORKSPACE}:/workspace \
+                alpine sh -c "chown -R 1000:1000 /workspace || true"
+
+                echo "--- Cleaning Problematic Laravel Folders ---"
+
+                rm -rf storage bootstrap/cache || true
+                '''
+            }
+        }
+
         stage('Checkout Code') {
             steps {
                 echo "--- Pulling Latest Code ---"
