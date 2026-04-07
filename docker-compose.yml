@@ -1,13 +1,12 @@
 version: '3.8'
 
 services:
+
   app:
     build: .
     container_name: school_app
     volumes:
-      # Code mount karne ke liye
       - ${APP_PATH:-.}:/var/www
-      # Vendor folder ko overwrite se bachane ke liye (Anonymous Volume)
       - /var/www/vendor
     depends_on:
       - db
@@ -25,6 +24,7 @@ services:
   db:
     image: mysql:8.0
     container_name: school_db
+    restart: always
     environment:
       MYSQL_DATABASE: sms
       MYSQL_ROOT_PASSWORD: root
