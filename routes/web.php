@@ -71,7 +71,7 @@ Route::group(['prefix'=>'admin'], function(){
 
     // Academic Year Management
     Route::group(['middleware'=>'admin.auth'],function(){
-        Route::get('logout', [AdminController::class, 'logout'])->name('admin.logout');
+        Route::post('logout', [AdminController::class, 'logout'])->name('admin.logout');
         Route::get('dashboard', [AdminController::class, 'dashboard'])->name('admin.dashboard');
         Route::get('form', [AdminController::class, 'form'])->name('admin.form');
         Route::get('table', [AdminController::class, 'table'])->name('admin.table');
