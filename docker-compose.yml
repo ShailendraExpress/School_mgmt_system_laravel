@@ -1,17 +1,33 @@
-server {
-    listen 80;
+version: '3.8'
 
-    root /var/www/public;
-    index index.php;
+services:
+  app:
+    build: .
+    container_name: school_app
+    restart: unless-stopped
+    working_dir: /var/www
 
-    location / {
-        try_files $uri $uri/ /index.php?$query_string;
-    }
+  webserver:
+    image: nginx:alpine
+    container_name: school_nginx
+    restart: unless-stopped
+    ports:
+      - "8083:80"
+    volumes:
+      - .:/var/www
+      - ./nginx:/etc/nginx/conf.d
+    depends_on:
+      - app
 
-    location ~ \.php$ {
-        fastcgi_pass app:9000;
-        fastcgi_index index.php;
-        include fastcgi_params;
-        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-    }
-}
+  db:
+    image: mysql:8.0
+    container_name: school_db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: sms
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - dbdata:/var/lib/mysql
+
+volumes:
+  dbdata:
